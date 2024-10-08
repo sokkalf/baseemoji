@@ -8,18 +8,46 @@ import (
     "os"
 )
 
-var emojiAlphabet = []rune{
-    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
-    '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
-    '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
-    '🤪', '🤨', '🧐', '🤓', '😎', '🥳', '😏', '😒',
-    '😞', '😔', '😟', '😕', '🙁', '☹',  '😣', '😖',
-    '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
-    '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰',
-    '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶',
+var bitsPerSymbol = 8 // Change this to 7 for 128 emojis
+
+// Initialize the emoji alphabet with 256 unique emojis
+var emojiAlphabet = []string{
+    "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+    "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰",
+    "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜",
+    "🤪", "🤨", "🧐", "🤓", "😎", "🥳", "😏", "😒",
+    "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖",
+    "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡",
+    "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰",
+    "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶",
+    "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮",
+    "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴",
+    "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠",
+    "😈", "👿", "🤡", "💩", "👹", "👺", "👻", "👽",
+    "👾", "🤖", "😺", "😸", "😹", "😻", "😼", "😽",
+    "🙀", "😿", "😾", "🐶", "🐱", "🐭", "🐹", "🐰",
+    "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷",
+    "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔",
+    "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉",
+    "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋",
+    "🐌", "🐞", "🐜", "🦟", "🦗", "🐢", "🐍", "🦎",
+    "🐙", "🦑", "🦐", "🦀", "🐡", "🐠", "🐟", "🐬",
+    "🐳", "🐋", "🦈", "🐊", "🐅", "🐆", "🦓", "🦍",
+    "🐘", "🦏", "🦛", "🐪", "🐫", "🦒", "🐃", "🐂",
+    "🐄", "🐎", "🐖", "🐏", "🐑", "🐐", "🦌", "🐕",
+    "🐩", "🐈", "🐓", "🦃", "🕊️", "🐇", "🐁", "🐀",
+    "🐿️", "🦔", "🐾", "🐉", "🐲", "🌵", "🎄", "🌲",
+    "🌳", "🌴", "🌱", "🌿", "☘️", "🍀", "🎍", "🎋",
+    "🍃", "🍂", "🍁", "🍄", "🌾", "💐", "🌷", "🌹",
+    "🥀", "🌺", "🌸", "🌼", "🌻", "🌞", "🌝", "🌛",
+    "🌚", "🌕", "🌖", "🌗", "🌘", "🌑", "🌒", "🌓",
+    "🌔", "🌙", "🌎", "🌍", "🌏", "💫", "⭐", "🌟",
+    "✨", "⚡", "🔥", "💥", "🌈", "☄️", "🌪️", "🌨️",
+    "🌧️", "🌦️", "☀️", "🌤️", "⛅", "🌥️", "☁️", "🌩️",
+    "🌊", "💧", "💦", "☔", "❄️", "🌬️", "🖕", "🌁",
 }
 
-var emojiToValue = make(map[rune]int)
+var emojiToValue = make(map[string]int)
 
 func init() {
     for i, emoji := range emojiAlphabet {
@@ -27,7 +55,7 @@ func init() {
     }
 }
 
-// EncodeToEmojiStream reads from reader and writes encoded emojis to writer
+// EncodeToEmojiStream encodes data from reader to emojis and writes to writer
 func EncodeToEmojiStream(reader io.Reader, writer io.Writer) error {
     bufReader := bufio.NewReader(reader)
     bufWriter := bufio.NewWriter(writer)
@@ -46,11 +74,11 @@ func EncodeToEmojiStream(reader io.Reader, writer io.Writer) error {
                 buffer = (buffer << 8) | uint64(data[i])
                 bitsInBuffer += 8
 
-                for bitsInBuffer >= 6 {
-                    bitsInBuffer -= 6
-                    index := (buffer >> bitsInBuffer) & 0x3F
+                for bitsInBuffer >= bitsPerSymbol {
+                    bitsInBuffer -= bitsPerSymbol
+                    index := (buffer >> bitsInBuffer) & ((1 << bitsPerSymbol) - 1)
                     emoji := emojiAlphabet[index]
-                    _, err := bufWriter.WriteRune(emoji)
+                    _, err := bufWriter.WriteString(emoji)
                     if err != nil {
                         return err
                     }
@@ -68,10 +96,10 @@ func EncodeToEmojiStream(reader io.Reader, writer io.Writer) error {
 
     // Handle remaining bits
     if bitsInBuffer > 0 {
-        buffer <<= (6 - bitsInBuffer)
-        index := buffer & 0x3F
+        buffer <<= (bitsPerSymbol - bitsInBuffer)
+        index := buffer & ((1 << bitsPerSymbol) - 1)
         emoji := emojiAlphabet[index]
-        _, err := bufWriter.WriteRune(emoji)
+        _, err := bufWriter.WriteString(emoji)
         if err != nil {
             return err
         }
@@ -80,7 +108,7 @@ func EncodeToEmojiStream(reader io.Reader, writer io.Writer) error {
     return nil
 }
 
-// DecodeFromEmojiStream reads encoded emojis from reader and writes decoded data to writer
+// DecodeFromEmojiStream decodes emojis from reader and writes original data to writer
 func DecodeFromEmojiStream(reader io.Reader, writer io.Writer) error {
     bufReader := bufio.NewReader(reader)
     bufWriter := bufio.NewWriter(writer)
@@ -90,21 +118,34 @@ func DecodeFromEmojiStream(reader io.Reader, writer io.Writer) error {
     var bitsInBuffer int = 0
 
     for {
-        char, _, err := bufReader.ReadRune()
-        if err != nil {
-            if err == io.EOF {
-                break
-            }
+        // Read the next emoji
+        emoji, err := bufReader.ReadString('\n') // Use a delimiter that won't appear in emojis
+        if err != nil && err != io.EOF {
             return err
         }
 
-        value, exists := emojiToValue[char]
-        if !exists {
-            return fmt.Errorf("invalid character: %c", char)
+        if len(emoji) == 0 && err == io.EOF {
+            break
         }
 
-        buffer = (buffer << 6) | uint64(value)
-        bitsInBuffer += 6
+        // Trim any whitespace or newlines
+        emoji = emoji[:len(emoji)-1]
+
+        value, exists := emojiToValue[emoji]
+        if !exists {
+            // Try to read more if the emoji wasn't complete
+            for !exists {
+                nextRune, _, err := bufReader.ReadRune()
+                if err != nil {
+                    return fmt.Errorf("invalid character or incomplete emoji")
+                }
+                emoji += string(nextRune)
+                value, exists = emojiToValue[emoji]
+            }
+        }
+
+        buffer = (buffer << bitsPerSymbol) | uint64(value)
+        bitsInBuffer += bitsPerSymbol
 
         for bitsInBuffer >= 8 {
             bitsInBuffer -= 8
@@ -114,6 +155,10 @@ func DecodeFromEmojiStream(reader io.Reader, writer io.Writer) error {
                 return err
             }
             buffer &= (1 << bitsInBuffer) - 1 // Keep only the remaining bits
+        }
+
+        if err == io.EOF {
+            break
         }
     }
 
