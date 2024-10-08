@@ -55,6 +55,30 @@ func init() {
     }
 }
 
+// ReadNextEmoji reads the next emoji from bufReader
+func ReadNextEmoji(bufReader *bufio.Reader) (string, error) {
+    maxEmojiLength := 8 // Maximum number of bytes an emoji can have
+    var bytes []byte
+
+    for i := 0; i < maxEmojiLength; i++ {
+        b, err := bufReader.ReadByte()
+        if err != nil {
+            if err == io.EOF && len(bytes) > 0 {
+                break
+            }
+            return "", err
+        }
+        bytes = append(bytes, b)
+        emojiStr := string(bytes)
+        if _, exists := emojiToValue[emojiStr]; exists {
+            return emojiStr, nil
+        }
+    }
+
+    // If we reach here, no valid emoji was found
+    return "", fmt.Errorf("invalid character or incomplete emoji")
+}
+
 // EncodeToEmojiStream encodes data from reader to emojis and writes to writer
 func EncodeToEmojiStream(reader io.Reader, writer io.Writer) error {
     bufReader := bufio.NewReader(reader)
@@ -108,7 +132,6 @@ func EncodeToEmojiStream(reader io.Reader, writer io.Writer) error {
     return nil
 }
 
-// DecodeFromEmojiStream decodes emojis from reader and writes original data to writer
 func DecodeFromEmojiStream(reader io.Reader, writer io.Writer) error {
     bufReader := bufio.NewReader(reader)
     bufWriter := bufio.NewWriter(writer)
@@ -118,30 +141,18 @@ func DecodeFromEmojiStream(reader io.Reader, writer io.Writer) error {
     var bitsInBuffer int = 0
 
     for {
-        // Read the next emoji
-        emoji, err := bufReader.ReadString('\n') // Use a delimiter that won't appear in emojis
-        if err != nil && err != io.EOF {
-            return err
+        // Read the next emoji from the input stream
+        emoji, err := ReadNextEmoji(bufReader)
+        if err != nil {
+            if err == io.EOF {
+                break
+            }
+            return fmt.Errorf("Decoding Error: %v", err)
         }
-
-        if len(emoji) == 0 && err == io.EOF {
-            break
-        }
-
-        // Trim any whitespace or newlines
-        emoji = emoji[:len(emoji)-1]
 
         value, exists := emojiToValue[emoji]
         if !exists {
-            // Try to read more if the emoji wasn't complete
-            for !exists {
-                nextRune, _, err := bufReader.ReadRune()
-                if err != nil {
-                    return fmt.Errorf("invalid character or incomplete emoji")
-                }
-                emoji += string(nextRune)
-                value, exists = emojiToValue[emoji]
-            }
+            return fmt.Errorf("Decoding Error: invalid emoji '%s'", emoji)
         }
 
         buffer = (buffer << bitsPerSymbol) | uint64(value)
@@ -155,10 +166,6 @@ func DecodeFromEmojiStream(reader io.Reader, writer io.Writer) error {
                 return err
             }
             buffer &= (1 << bitsInBuffer) - 1 // Keep only the remaining bits
-        }
-
-        if err == io.EOF {
-            break
         }
     }
 
@@ -190,7 +197,7 @@ func main() {
         // Decode from stdin to stdout
         err := DecodeFromEmojiStream(os.Stdin, os.Stdout)
         if err != nil {
-            fmt.Fprintln(os.Stderr, "Decoding Error:", err)
+            fmt.Fprintln(os.Stderr, err)
             os.Exit(1)
         }
     }
